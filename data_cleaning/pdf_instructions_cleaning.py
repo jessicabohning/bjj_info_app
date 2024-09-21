@@ -1,8 +1,11 @@
-# Playing around with what I want for the BJJ app idea Ben & I are working on.
+# Clean the instructional PDFs for Combatives 2.0 and save as a dictionary
 
 import os
+import json
+from logging import raiseExceptions
 import pandas as pd
 from pypdf import PdfReader
+import pdfplumber
 import re
 
 
@@ -21,22 +24,32 @@ def indentify_technique_file_names(dir:str):
 
 def pdf_extract(file_name):
     # Parse PDF
-    reader = PdfReader(file_name)
-    page_count = len(reader.pages)
-    page = reader.pages[0]
-    pdf_text = page.extract_text()
+    with pdfplumber.open(file_name) as pdf:
+        pdf_text = ""
+        for page in pdf.pages:
+            pdf_text += page.extract_text()
+
+    # Correct Common typos that ruin the extraction process
+    pdf_text = pdf_text.replace("Refl ex Development Drill", "Reflex Development Drill")
+    pdf_text = pdf_text.replace("Stage 1.5", "Stage One Point Five")
 
     # Identify Technical Slices Sections
-    result_slices = re.search(pattern='Technical Slices(.*)Reflex Development Drill',
-                       string=pdf_text,
-                       flags=re.DOTALL)
-    result_slices = result_slices.group(1).strip()
+    try:
+        result_slices = re.search(pattern='Technical Slices(.*)Reflex Development Drill',
+                           string=pdf_text,
+                           flags=re.DOTALL)
+        result_slices = result_slices.group(1).strip()
+    except:
+        raise Exception("Failure in pdf_extract: cannot find the phrase(s) 'Technical Slices' and/or 'Reflex Development Drill")
 
     # Section
-    result_technique_name = re.search(pattern='Technique: (.*)\nPosition',
-                       string=pdf_text,
-                       flags=re.DOTALL)
-    result_technique_name = result_technique_name.group(1).strip()
+    try:
+        result_technique_name = re.search(pattern='Technique: (.*)\nPosition',
+                           string=pdf_text,
+                           flags=re.DOTALL)
+        result_technique_name = result_technique_name.group(1).strip()
+    except:
+        raise Exception("Failure in pdf_extract: cannot find the phrase(s) 'Technique' and/or 'Position'")
     return result_slices, result_technique_name
 
 
@@ -96,89 +109,106 @@ def format_technique_str(result_slices:str,
 
     # Format each move into the correct dictionary
     technique_dict = {}
-    for i in range(0,len(split_techniques)):
-        temp_string = split_techniques[i]
+    try:
+        for i in range(0,len(split_techniques)):
+            # print(f"Iteration: {i}")
+            temp_string = split_techniques[i]
 
-        # Check to see which sections this move has
-        contained_values = [item for item in possible_details if item in temp_string]
+            # Check to see which sections this move has
+            contained_values = [item for item in possible_details if item in temp_string]
 
-        # Remove duplicate spelling
-        if ('Most Common Mistake' in contained_values) & ('Most Common Mistakes' in contained_values):
-            contained_values.remove('Most Common Mistake')
+            # Remove duplicate spelling
+            if ('Most Common Mistake' in contained_values) & ('Most Common Mistakes' in contained_values):
+                contained_values.remove('Most Common Mistake')
 
-        contained_values = sorted(contained_values,
-                                  key=lambda item: temp_string.find(item) if item in temp_string else float('inf'))
+            contained_values = sorted(contained_values,
+                                      key=lambda item: temp_string.find(item) if item in temp_string else float('inf'))
 
-        move_name = (result_technique_name + ": " +
-                     re.search(pattern='(.*)Indicator: ',
-                               string=temp_string,
-                               flags=re.DOTALL).group(1).strip())
+            move_name = (result_technique_name + ": " +
+                         re.search(pattern=f'(.*){contained_values[0]}: ',
+                                   string=temp_string,
+                                   flags=re.DOTALL).group(1).strip())
 
-        indicator = get_detail_text(detail_name = 'Indicator',
-                                    list_of_all_details=contained_values,
-                                    full_string=temp_string)
+            indicator = get_detail_text(detail_name = 'Indicator',
+                                        list_of_all_details=contained_values,
+                                        full_string=temp_string)
 
-        essential_detail = get_detail_text(detail_name = 'Essential Detail',
+            essential_detail = get_detail_text(detail_name = 'Essential Detail',
+                                               list_of_all_details=contained_values,
+                                               full_string=temp_string)
+
+            if 'Most Common Mistakes' in contained_values:
+                mistake= get_detail_text(detail_name = 'Most Common Mistakes',
+                                         list_of_all_details=contained_values,
+                                         full_string=temp_string)
+            else:
+                mistake= get_detail_text(detail_name = 'Most Common Mistake',
+                                         list_of_all_details=contained_values,
+                                         full_string=temp_string)
+
+            bad_guy_reminder= get_detail_text(detail_name = 'Bad Guy Reminder',
+                                              list_of_all_details=contained_values,
+                                              full_string=temp_string)
+
+            safety_tip = get_detail_text(detail_name = 'Safety Tip',
+                                         list_of_all_details=contained_values,
+                                         full_string=temp_string)
+
+            core_principles = get_detail_text(detail_name = 'Core Principles',
+                                              list_of_all_details=contained_values,
+                                              full_string=temp_string)
+
+            drill_orders = get_detail_text(detail_name = 'Drill Orders',
                                            list_of_all_details=contained_values,
                                            full_string=temp_string)
 
-        if 'Most Common Mistakes' in contained_values:
-            mistake= get_detail_text(detail_name = 'Most Common Mistakes',
-                                     list_of_all_details=contained_values,
-                                     full_string=temp_string)
-        else:
-            mistake= get_detail_text(detail_name = 'Most Common Mistake',
-                                     list_of_all_details=contained_values,
-                                     full_string=temp_string)
-
-        bad_guy_reminder= get_detail_text(detail_name = 'Bad Guy Reminder',
-                                          list_of_all_details=contained_values,
-                                          full_string=temp_string)
-
-        safety_tip = get_detail_text(detail_name = 'Safety Tip',
-                                     list_of_all_details=contained_values,
-                                     full_string=temp_string)
-
-        core_principles = get_detail_text(detail_name = 'Core Principles',
-                                          list_of_all_details=contained_values,
-                                          full_string=temp_string)
-
-        drill_orders = get_detail_text(detail_name = 'Drill Orders',
-                                       list_of_all_details=contained_values,
-                                       full_string=temp_string)
-
-        technique_dict[move_name] = {
-            "Indicator": indicator,
-            "Esstential Detail": essential_detail,
-            "Most Common Mistake": mistake,
-            "Bad Guy Reminder": bad_guy_reminder,
-            "Safety Tip": safety_tip,
-            "Core Principles": core_principles,
-            "Drill Orders": drill_orders
-        }
+            technique_dict[move_name] = {
+                "Indicator": indicator,
+                "Esstential Detail": essential_detail,
+                "Most Common Mistake": mistake,
+                "Bad Guy Reminder": bad_guy_reminder,
+                "Safety Tip": safety_tip,
+                "Core Principles": core_principles,
+                "Drill Orders": drill_orders
+            }
+    except:
+        print(f"Failure in format_technique_str() somewhere in the for loop")
 
     return technique_dict
 
+def save_data_as_dict(dictionary, file_path):
+    # Ensure the file path ends with .json. If not append or raise error
+    if file_path[-5:] == ".json":
+        json.dump(dictionary, open(file_path, 'w'))
+    else:
+        # raise Exception("file_path must end as .txt")
+        raise Exception("file_path must end as .json")
 
 
 
 if __name__ == "__main__":
-    dir = "/Users/jessicabohning/Documents/gracie_combatives_2.0/"
+    dir = "../data/pdfs/gracie_combatives_2.0/"
     technique_file_paths = indentify_technique_file_names(dir)
+    failure_counter = 0
 
-    # TODO update for multiple pdfs
-    file_name = "/Users/jessicabohning/Documents/gracie_combatives_2.0/Lesson 1_ Trap & Roll Escape.pdf"
-    result_slices, result_technique_name = pdf_extract(file_name)
-    technique_dict = format_technique_str(result_slices=result_slices,
-                                          result_technique_name=result_technique_name)
+    for i in technique_file_paths:
+        print(i)
+        result_slices, result_technique_name = pdf_extract(i)
+        technique_dict = format_technique_str(result_slices=result_slices,
+                                              result_technique_name=result_technique_name)
 
-    print(f"\n\nThe Recorded Moves Are: {list(technique_dict.keys())}\n\n")
+    # TODO update final dict to replace "Stage One Point Five" with "Stage 1.5"
+    # TODO update save process to save all files and not just the last one
+    save_data_as_dict(dictionary=technique_dict,
+                      file_path="../data/cleaned_data/instructionals_combatives_2.0.json")
 
-    for keys in list(technique_dict.keys()):
-        example_dict = technique_dict[keys]
-        print(f"\nThe details for {keys} are")
-        for i in example_dict.keys():
-            print(f"\t{i}: {example_dict[i]}")
+    # print(f"\n\nThe Recorded Moves Are: {list(technique_dict.keys())}\n\n")
+    #
+    # for keys in list(technique_dict.keys()):
+    #     example_dict = technique_dict[keys]
+    #     print(f"\nThe details for {keys} are")
+    #     for i in example_dict.keys():
+    #         print(f"\t{i}: {example_dict[i]}")
 
 
 
