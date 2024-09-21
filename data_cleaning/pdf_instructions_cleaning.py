@@ -85,13 +85,7 @@ def get_detail_text(detail_name = 'Indicator',
     return out
 
 
-def format_technique_str(result_slices:str,
-                         result_technique_name:str):
-
-    possible_details = ['Indicator', 'Essential Detail', 'Most Common Mistake', 'Most Common Mistakes',
-                        'Bad Guy Reminder', 'Safety Tip',
-                        'Core Principles', 'Drill Orders']
-
+def split_technique_string(result_slices:str):
     # Split technique string on bulleted list (formatted as: 1. Hook Sweep)
     split_techniques = re.split(pattern = r'(\d+)\.', string=result_slices)
 
@@ -106,6 +100,18 @@ def format_technique_str(result_slices:str,
 
     # Remove double spaces
     split_techniques = [i.replace('  ', ' ') for i in split_techniques]
+
+    return split_techniques
+
+
+def format_technique_str(result_slices:str,
+                         result_technique_name:str):
+
+    possible_details = ['Indicator', 'Essential Detail', 'Most Common Mistake', 'Most Common Mistakes',
+                        'Bad Guy Reminder', 'Safety Tip',
+                        'Core Principles', 'Drill Orders']
+
+    split_techniques = split_technique_string(result_slices)
 
     # Format each move into the correct dictionary
     technique_dict = {}
@@ -185,17 +191,25 @@ def save_data_as_dict(dictionary, file_path):
         raise Exception("file_path must end as .json")
 
 
+def merge_dicts(existing_dict, new_dict):
+    for key, value in new_dict.items():
+        if key in existing_dict:
+            existing_dict[key].update(value)
+        else:
+            existing_dict[key] = value
+
 
 if __name__ == "__main__":
     dir = "../data/pdfs/gracie_combatives_2.0/"
     technique_file_paths = indentify_technique_file_names(dir)
-    failure_counter = 0
 
+    technique_dict = {}
     for i in technique_file_paths:
         print(i)
         result_slices, result_technique_name = pdf_extract(i)
-        technique_dict = format_technique_str(result_slices=result_slices,
+        out_dict = format_technique_str(result_slices=result_slices,
                                               result_technique_name=result_technique_name)
+        merge_dicts(technique_dict, out_dict)
 
     # TODO update final dict to replace "Stage One Point Five" with "Stage 1.5"
     # TODO update save process to save all files and not just the last one
@@ -211,4 +225,16 @@ if __name__ == "__main__":
     #         print(f"\t{i}: {example_dict[i]}")
 
 
-
+    # List of files with bad pdf parsing:
+    # "/Lesson 18_ Headlock Escape 1.pdf"
+    # "Lesson 3_ Positional Control (Mount).pdf"
+    # "Lesson 31_ Take the Back (Guard).pdf"
+    # "Lesson 16_ Headlock Counters.pdf"
+    # "Lesson 9_ Armbar (Mount).pdf"
+    # "Lesson 13_ Positional Control (Side Mount).pdf"
+    # "Lesson 2_ Americana Armlock.pdf"
+    # "Lesson 12_ Elbow Escape (Mount).pdf"
+    # "Lesson 17_ Double Leg Takedown.pdf"
+    # "Lesson 8_ Punch Block Series (Stages 1-4).pdf"
+    # "Lesson 24_ Shrimp Escape.pdf"
+    # "Lesson 22_ Headlock Escape 2.pdf"
