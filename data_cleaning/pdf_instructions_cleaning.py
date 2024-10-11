@@ -8,6 +8,17 @@ from pypdf import PdfReader
 import pdfplumber
 import re
 
+# Goal:
+# {"armbar": {"position": "mount",
+#             "overview": "The goal…",
+#             "technical_slices": {"Final_Control": {},
+#                                  "Standard_variation": {},
+#                                  "side_variation": {},
+#                                  "bonus_s_mount_var": {}
+#                                  },
+#             "reflect_dev_drill": "",
+#             "minset_minute": "",
+#             "street_tip": ""}}
 
 def indentify_technique_file_names(dir:str):
     # Get all files in the gracie directory
@@ -212,7 +223,6 @@ if __name__ == "__main__":
         merge_dicts(technique_dict, out_dict)
 
     # TODO update final dict to replace "Stage One Point Five" with "Stage 1.5"
-    # TODO update save process to save all files and not just the last one
     save_data_as_dict(dictionary=technique_dict,
                       file_path="../data/cleaned_data/instructionals_combatives_2.0.json")
 
