@@ -1,5 +1,8 @@
 import openai
 import os
+
+# The file secret_key_setup.py contains a single line of code with the variable imported_secret_key set equal
+# to the API secret key received from OpenAI's API platform
 from secret_key_setup import imported_secret_key
 
 # Set up
